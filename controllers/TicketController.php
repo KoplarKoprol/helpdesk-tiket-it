@@ -45,7 +45,37 @@ class TicketController
         ]);
 
         if ($success) {
-            // TODO: panggil service notifikasi email (PHPMailer) di sini
+            $ticketId = (int) $this->db->lastInsertId();
+            $userModel = new User($this->db);
+            $user = $userModel->findById($_SESSION['user_id']);
+            $ticket = $this->ticketModel->findById($ticketId);
+
+            if ($user && $ticket) {
+                require_once __DIR__ . '/../helpers/Mailer.php';
+                Mailer::sendTicketCreated($user['email'], $user['nama'], [
+                    'id' => $ticketId,
+                    'subject' => $ticket['judul'],
+                    'priority' => $ticket['prioritas'],
+                    'category' => $ticket['kategori_nama'] ?? 'Lainnya'
+                ]);
+
+                // Kirim notifikasi in-app ke semua Admin
+                $stmt = $this->db->prepare("SELECT id FROM users WHERE role_id = 3");
+                $stmt->execute();
+                $admins = $stmt->fetchAll();
+
+                require_once __DIR__ . '/../models/Notification.php';
+                $notifModel = new Notification();
+                foreach ($admins as $admin) {
+                    $notifModel->create(
+                        $admin['id'],
+                        $ticketId,
+                        'ticket_created',
+                        "Tiket baru #" . $ticketId . " telah dibuat oleh " . $user['nama']
+                    );
+                }
+            }
+
             header('Location: ' . BASE_URL . 'index.php?page=user_dashboard&created=1');
             exit;
         }
@@ -95,7 +125,33 @@ class TicketController
             return;
         }
 
-        $this->ticketModel->updateStatus($id, $status);
+        $ticket = $this->ticketModel->findById($id);
+        if ($ticket) {
+            $oldStatus = $ticket['status'];
+            if ($oldStatus !== $status) {
+                $this->ticketModel->updateStatus($id, $status);
+
+                $userModel = new User($this->db);
+                $owner = $userModel->findById($ticket['user_id']);
+                if ($owner) {
+                    require_once __DIR__ . '/../helpers/Mailer.php';
+                    Mailer::sendStatusChanged($owner['email'], $owner['nama'], [
+                        'id' => $ticket['id'],
+                        'subject' => $ticket['judul']
+                    ], $oldStatus, $status);
+
+                    require_once __DIR__ . '/../models/Notification.php';
+                    $notifModel = new Notification();
+                    $notifModel->create(
+                        $ticket['user_id'],
+                        $id,
+                        'status_change',
+                        "Status tiket #" . $id . " diubah dari " . $oldStatus . " menjadi " . $status
+                    );
+                }
+            }
+        }
+
         header('Location: ' . BASE_URL . 'index.php?page=ticket_detail&id=' . $id);
         exit;
     }
@@ -126,7 +182,30 @@ class TicketController
         }
 
         $this->ticketModel->assignTeknisi($ticketId, $teknisiId);
-        // TODO: kirim notifikasi email ke teknisi yang ditugaskan
+
+        $userModel = new User($this->db);
+        $teknisi = $userModel->findById($teknisiId);
+        $ticket = $this->ticketModel->findById($ticketId);
+
+        if ($teknisi && $ticket) {
+            require_once __DIR__ . '/../helpers/Mailer.php';
+            Mailer::sendTicketAssigned($teknisi['email'], $teknisi['nama'], [
+                'id' => $ticket['id'],
+                'subject' => $ticket['judul'],
+                'priority' => $ticket['prioritas'],
+                'category' => $ticket['kategori_nama'] ?? 'Lainnya'
+            ]);
+
+            require_once __DIR__ . '/../models/Notification.php';
+            $notifModel = new Notification();
+            $notifModel->create(
+                $teknisiId,
+                $ticketId,
+                'assign',
+                "Tiket #" . $ticketId . " telah ditugaskan kepada Anda: " . $ticket['judul']
+            );
+        }
+
         header('Location: ' . BASE_URL . 'index.php?page=admin_all_tickets&assigned=1');
         exit;
     }

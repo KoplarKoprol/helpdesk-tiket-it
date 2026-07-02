@@ -10,6 +10,7 @@ require_once __DIR__ . '/controllers/AuthController.php';
 require_once __DIR__ . '/controllers/TicketController.php';
 require_once __DIR__ . '/controllers/AdminController.php';
 require_once __DIR__ . '/controllers/AdminUserController.php';
+require_once __DIR__ . '/controllers/CommentController.php';
 
 $database = new Database();
 $db = $database->connect();
@@ -117,6 +118,47 @@ switch ($page) {
     case 'admin_user_delete':
         RoleMiddleware::requireRole(['admin']);
         (new AdminUserController($db))->delete();
+        break;
+
+    // ===== ANGGOTA 3: KOMENTAR & NOTIFIKASI =====
+    case 'comments_list':
+        RoleMiddleware::requireRole(['user', 'teknisi', 'admin']);
+        (new CommentController())->handleRequest('list');
+        break;
+
+    case 'comment_store':
+        RoleMiddleware::requireRole(['user', 'teknisi', 'admin']);
+        (new CommentController())->handleRequest('store');
+        break;
+
+    case 'comment_delete':
+        RoleMiddleware::requireRole(['user', 'teknisi', 'admin']);
+        (new CommentController())->handleRequest('delete');
+        break;
+
+    case 'download_attachment':
+        RoleMiddleware::requireRole(['user', 'teknisi', 'admin']);
+        (new CommentController())->handleRequest('download');
+        break;
+
+    case 'delete_attachment':
+        RoleMiddleware::requireRole(['user', 'teknisi', 'admin']);
+        (new CommentController())->handleRequest('deleteAttachment');
+        break;
+
+    case 'notifications_list':
+        RoleMiddleware::requireRole(['user', 'teknisi', 'admin']);
+        (new CommentController())->handleRequest('notifications');
+        break;
+
+    case 'notification_mark_read':
+        RoleMiddleware::requireRole(['user', 'teknisi', 'admin']);
+        (new CommentController())->handleRequest('markRead');
+        break;
+
+    case 'notification_mark_all_read':
+        RoleMiddleware::requireRole(['user', 'teknisi', 'admin']);
+        (new CommentController())->handleRequest('markAllRead');
         break;
 
     default:

@@ -27,3 +27,14 @@ class Database
         return $this->conn;
     }
 }
+
+function getDB()
+{
+    static $db = null;
+    if ($db === null) {
+        $database = new Database();
+        $db = $database->connect();
+    }
+    return $db;
+}
+
